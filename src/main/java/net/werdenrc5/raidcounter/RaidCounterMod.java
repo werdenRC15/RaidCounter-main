@@ -99,7 +99,7 @@ public class RaidCounterMod {
             if (raidActive && vanillaRaid != null) {
                 checkAllRaiders(level, pos, raiderMap);
                 
-                // Get wave information - Fixed: Don't add 1 to getGroupsSpawned()
+                // Get wave information
                 waveNumber = vanillaRaid.getGroupsSpawned();
                 
                 // Get total waves based on difficulty
