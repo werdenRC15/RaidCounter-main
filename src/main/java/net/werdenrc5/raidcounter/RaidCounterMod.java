@@ -19,13 +19,18 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent.Phase;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.event.TickEvent.PlayerTickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig.Type;
+import net.werdenrc5.raidcounter.client.ConfigScreen;
 import net.werdenrc5.raidcounter.client.HudOverlay;
+import net.werdenrc5.raidcounter.config.ModConfig;
 import net.werdenrc5.raidcounter.network.RaiderCountMessage;
 import org.slf4j.Logger;
 
@@ -48,10 +53,15 @@ public class RaidCounterMod {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::setup);
         
+        // Register config
+        ModLoadingContext.get().registerConfig(Type.CLIENT, ModConfig.SPEC);
+        
         MinecraftForge.EVENT_BUS.register(this);
         
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modEventBus.addListener(this::registerOverlays);
+            // Register config screen
+            ConfigScreen.register();
         }
     }
 
@@ -80,16 +90,37 @@ public class RaidCounterMod {
             Raid vanillaRaid = level.getRaidAt(pos);
             boolean raidActive = vanillaRaid != null && vanillaRaid.isActive();
             
+            // Wave tracking
+            int waveNumber = 0;
+            int totalWaves = 0;
+            
             // Only collect raider data if there's an active raid
             Map<String, Integer> raiderMap = new HashMap<>();
-            if (raidActive) {
+            if (raidActive && vanillaRaid != null) {
                 checkAllRaiders(level, pos, raiderMap);
+                
+                // Get wave information - Fixed: Don't add 1 to getGroupsSpawned()
+                waveNumber = vanillaRaid.getGroupsSpawned();
+                
+                // Get total waves based on difficulty
+                Difficulty difficulty = level.getDifficulty();
+                int numGroups = vanillaRaid.getNumGroups(difficulty);
+                if (numGroups <= 0) {
+                    // Fallback calculation
+                    int badOmenLevel = vanillaRaid.getBadOmenLevel();
+                    numGroups = Math.max(1, Math.min(6, badOmenLevel + 1));
+                    LOGGER.debug("getNumGroups returned invalid value, using fallback: {}", numGroups);
+                }
+                totalWaves = numGroups;
+                
+                LOGGER.debug("Current raid wave: {}/{}", waveNumber, totalWaves);
             }
 
             // Always send the message to update the client's raid status and raider data
-            LOGGER.debug("Sending raid data to player: active={}, raiders={}", raidActive, raiderMap.size());
+            LOGGER.debug("Sending raid data to player: active={}, raiders={}, wave={}/{}",
+                raidActive, raiderMap.size(), waveNumber, totalWaves);
             INSTANCE.send(PacketDistributor.PLAYER.with(() -> player),
-                new RaiderCountMessage(raiderMap, raidActive));
+                new RaiderCountMessage(raiderMap, raidActive, waveNumber, totalWaves));
         }
     }
 
@@ -127,8 +158,17 @@ public class RaidCounterMod {
             && event.getEntity() instanceof Raider raider) {
             Raid raid = serverLevel.getRaidAt(raider.blockPosition());
             if (raid != null && raid.isActive()) {
-                LOGGER.debug("Detected raider joining an active raid: {}", 
-                    EntityType.getKey(raider.getType()).toString());
+                Difficulty difficulty = serverLevel.getDifficulty();
+                int numGroups = raid.getNumGroups(difficulty);
+                if (numGroups <= 0) {
+                    int badOmenLevel = raid.getBadOmenLevel();
+                    numGroups = Math.max(1, Math.min(6, badOmenLevel + 1));
+                }
+                
+                LOGGER.debug("Detected raider joining an active raid: {}, wave {}/{}",
+                    EntityType.getKey(raider.getType()).toString(),
+                    raid.getGroupsSpawned(),
+                    numGroups);
             }
         }
     }

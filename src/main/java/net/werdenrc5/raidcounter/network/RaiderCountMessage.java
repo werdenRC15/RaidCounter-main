@@ -10,10 +10,14 @@ import java.util.function.Supplier;
 public class RaiderCountMessage {
     private final Map<String, Integer> raiderMap;
     private final boolean raidActive;
+    private final int waveNumber;
+    private final int totalWaves;
 
-    public RaiderCountMessage(Map<String, Integer> raiderMap, boolean raidActive) {
+    public RaiderCountMessage(Map<String, Integer> raiderMap, boolean raidActive, int waveNumber, int totalWaves) {
         this.raiderMap = raiderMap;
         this.raidActive = raidActive;
+        this.waveNumber = waveNumber;
+        this.totalWaves = totalWaves;
     }
 
     public RaiderCountMessage(FriendlyByteBuf buf) {
@@ -22,6 +26,8 @@ public class RaiderCountMessage {
             FriendlyByteBuf::readInt
         );
         this.raidActive = buf.readBoolean();
+        this.waveNumber = buf.readInt();
+        this.totalWaves = buf.readInt();
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -30,6 +36,8 @@ public class RaiderCountMessage {
             FriendlyByteBuf::writeInt
         );
         buf.writeBoolean(raidActive);
+        buf.writeInt(waveNumber);
+        buf.writeInt(totalWaves);
     }
 
     public static RaiderCountMessage decode(FriendlyByteBuf buf) {
@@ -40,6 +48,8 @@ public class RaiderCountMessage {
         ctx.get().enqueueWork(() -> {
             ClientRaiderCountData.setRaiderMap(raiderMap);
             ClientRaiderCountData.setRaidActive(raidActive);
+            ClientRaiderCountData.setWaveNumber(waveNumber);
+            ClientRaiderCountData.setTotalWaves(totalWaves);
         });
         ctx.get().setPacketHandled(true);
     }
