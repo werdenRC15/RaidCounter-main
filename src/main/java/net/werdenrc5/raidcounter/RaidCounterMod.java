@@ -3,6 +3,8 @@ package net.werdenrc5.raidcounter;
 import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.AbstractIllager;
+import net.minecraft.world.entity.monster.SpellcasterIllager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,6 +34,7 @@ import net.werdenrc5.raidcounter.client.ConfigScreen;
 import net.werdenrc5.raidcounter.client.HudOverlay;
 import net.werdenrc5.raidcounter.config.ModConfig;
 import net.werdenrc5.raidcounter.network.RaiderCountMessage;
+import net.werdenrc5.raidcounter.util.RaiderTypeUtil;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
@@ -129,18 +132,49 @@ public class RaidCounterMod {
         if (vanillaRaid != null && vanillaRaid.isActive()) {
             vanillaRaid.getAllRaiders().forEach(raider -> {
                 String id = EntityType.getKey(raider.getType()).toString();
+                
+                // Log raider type and class information for debugging
+                logRaiderInfo(raider, id);
+                
                 map.put(id, map.getOrDefault(id, 0) + 1);
             });
         }
 
+        // Check for raiders in the area that might not be in the vanilla raid tracker
         level.getEntities((Entity) null,
-            new AABB(pos).inflate(96),
+            new AABB(pos).inflate(96), // 96 block radius
             e -> e instanceof Raider && isPartOfAnyRaid(e) && 
                  (vanillaRaid == null || !vanillaRaid.getAllRaiders().contains(e))
         ).forEach(entity -> {
             String id = EntityType.getKey(entity.getType()).toString();
+            
+            // Log raider type for entities found in the area
+            if (entity instanceof Raider) {
+                logRaiderInfo((Raider)entity, id);
+            }
+            
             map.put(id, map.getOrDefault(id, 0) + 1);
         });
+    }
+    
+    /**
+     * Logs detailed information about a raider entity for debugging purposes
+     */
+    private void logRaiderInfo(Raider raider, String id) {
+        String raiderType = "Unknown";
+        
+        if (raider instanceof SpellcasterIllager) {
+            raiderType = "SpellcasterIllager";
+        } else if (raider instanceof AbstractIllager) {
+            raiderType = "AbstractIllager";
+        } else if (raider instanceof Raider) {
+            raiderType = "Raider (non-Illager)";
+        }
+        
+        LOGGER.debug("Found raider: {} ({}), Class type: {}", 
+            id, 
+            raider.getName().getString(),
+            raiderType);
     }
 
     private boolean isPartOfAnyRaid(Entity entity) {
@@ -165,8 +199,11 @@ public class RaidCounterMod {
                     numGroups = Math.max(1, Math.min(6, badOmenLevel + 1));
                 }
                 
+                String id = EntityType.getKey(raider.getType()).toString();
+                logRaiderInfo(raider, id);
+                
                 LOGGER.debug("Detected raider joining an active raid: {}, wave {}/{}",
-                    EntityType.getKey(raider.getType()).toString(),
+                    id,
                     raid.getGroupsSpawned(),
                     numGroups);
             }
