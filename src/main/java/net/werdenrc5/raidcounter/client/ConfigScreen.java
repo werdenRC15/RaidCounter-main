@@ -1,6 +1,6 @@
 package net.werdenrc5.raidcounter.client;
 
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -100,7 +100,6 @@ public class ConfigScreen extends Screen {
         ));
 
         // Scale setting
-        // Fix for HUD Scale - Use UnitDouble.INSTANCE with xmap to convert between ranges
         this.optionsList.addBig(new OptionInstance<>(
                 "HUD Scale",
                 OptionInstance.noTooltip(),
@@ -115,22 +114,28 @@ public class ConfigScreen extends Screen {
 
         this.addRenderableWidget(this.optionsList);
 
-        Button colorSettingsButton = Button.builder(
+        Button colorSettingsButton = new Button(
+                this.width / 2 - 100, this.height - 27, 90, 20,
                 Component.literal("Color Settings"),
                 button -> openColorSettingsScreen()
-        ).bounds(this.width / 2 - 100, this.height - 27, 90, 20).build();
+        );
         this.addRenderableWidget(colorSettingsButton);
 
-        Button resetButton = Button.builder(
+        Button resetButton = new Button(
+                this.width - 210, this.height - 27, 90, 20,
                 Component.literal("Reset to Defaults"),
                 button -> resetToDefaults()
-        ).bounds(this.width - 210, this.height - 27, 90, 20).build();
+        );
         this.addRenderableWidget(resetButton);
 
-        this.addRenderableWidget(Button.builder(Component.literal("Done"), button -> {
-            ModConfig.SPEC.save(); // Explicitly save config
-            this.minecraft.setScreen(parentScreen);
-        }).bounds(10, this.height - 27, 90, 20).build());
+        this.addRenderableWidget(new Button(
+                10, this.height - 27, 90, 20,
+                Component.literal("Done"),
+                button -> {
+                    ModConfig.SPEC.save(); // Explicitly save config
+                    this.minecraft.setScreen(parentScreen);
+                }
+        ));
     }
 
     private void optionsList(int i) {
@@ -202,12 +207,12 @@ public class ConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics);
-        optionsList.render(guiGraphics, mouseX, mouseY, partialTick);
-        guiGraphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFF);
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        renderBackground(poseStack);
+        optionsList.render(poseStack, mouseX, mouseY, partialTick);
+        drawCenteredString(poseStack, font, title, width / 2, 20, 0xFFFFFF);
         
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(poseStack, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -230,6 +235,11 @@ public class ConfigScreen extends Screen {
         private int illagerColorPreview;
         private int raiderColorPreview;
         private int spellcasterColorPreview;
+        
+        // Store button references to update their text
+        private Button illagerButton;
+        private Button raiderButton;
+        private Button spellcasterButton;
 
         public ColorSettingsScreen(Screen parentScreen) {
             super(Component.literal("Color Settings"));
@@ -248,7 +258,8 @@ public class ConfigScreen extends Screen {
             int spacing = 30;
 
             // Illager Color Button
-            this.addRenderableWidget(Button.builder(
+            this.illagerButton = new Button(
+                centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight,
                 getColorText("Illager Color", illagerColorPreview),
                 button -> openColorWheel(
                     "Illager Color",
@@ -256,14 +267,17 @@ public class ConfigScreen extends Screen {
                     this::updateIllagerColor,
                     color -> {
                         illagerColorPreview = color;
-                        button.setMessage(getColorText("Illager Color", color));
+                        // Create new button with updated text
+                        this.recreateIllagerButton();
                         ModConfig.ILLAGER_COLOR.set(color);
                     }
                 )
-            ).bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight).build());
+            );
+            this.addRenderableWidget(this.illagerButton);
 
             // Raider Color Button
-            this.addRenderableWidget(Button.builder(
+            this.raiderButton = new Button(
+                centerX - buttonWidth / 2, startY + spacing, buttonWidth, buttonHeight,
                 getColorText("Raider Color", raiderColorPreview),
                 button -> openColorWheel(
                     "Raider Color",
@@ -271,14 +285,17 @@ public class ConfigScreen extends Screen {
                     this::updateRaiderColor,
                     color -> {
                         raiderColorPreview = color;
-                        button.setMessage(getColorText("Raider Color", color));
+                        // Create new button with updated text
+                        this.recreateRaiderButton();
                         ModConfig.RAIDER_COLOR.set(color);
                     }
                 )
-            ).bounds(centerX - buttonWidth / 2, startY + spacing, buttonWidth, buttonHeight).build());
+            );
+            this.addRenderableWidget(this.raiderButton);
 
             // Spellcaster Color Button
-            this.addRenderableWidget(Button.builder(
+            this.spellcasterButton = new Button(
+                centerX - buttonWidth / 2, startY + spacing * 2, buttonWidth, buttonHeight,
                 getColorText("Spellcaster Color", spellcasterColorPreview),
                 button -> openColorWheel(
                     "Spellcaster Color",
@@ -286,19 +303,96 @@ public class ConfigScreen extends Screen {
                     this::updateSpellcasterColor,
                     color -> {
                         spellcasterColorPreview = color;
-                        button.setMessage(getColorText("Spellcaster Color", color));
+                        // Create new button with updated text
+                        this.recreateSpellcasterButton();
                         ModConfig.SPELLCASTER_COLOR.set(color);
                     }
                 )
-            ).bounds(centerX - buttonWidth / 2, startY + spacing * 2, buttonWidth, buttonHeight).build());
+            );
+            this.addRenderableWidget(this.spellcasterButton);
 
-            this.addRenderableWidget(Button.builder(
+            this.addRenderableWidget(new Button(
+                centerX - buttonWidth / 2, this.height - 40, buttonWidth, buttonHeight,
                 Component.literal("Back"),
                 button -> {
                     ModConfig.SPEC.save(); // Save changes
                     this.minecraft.setScreen(parentScreen);
                 }
-            ).bounds(centerX - buttonWidth / 2, this.height - 40, buttonWidth, buttonHeight).build());
+            ));
+        }
+
+        private void recreateIllagerButton() {
+            this.removeWidget(this.illagerButton);
+            int centerX = this.width / 2;
+            int buttonWidth = 200;
+            int buttonHeight = 20;
+            int startY = 50;
+            
+            this.illagerButton = new Button(
+                centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight,
+                getColorText("Illager Color", illagerColorPreview),
+                button -> openColorWheel(
+                    "Illager Color",
+                    illagerColorPreview,
+                    this::updateIllagerColor,
+                    color -> {
+                        illagerColorPreview = color;
+                        this.recreateIllagerButton();
+                        ModConfig.ILLAGER_COLOR.set(color);
+                    }
+                )
+            );
+            this.addRenderableWidget(this.illagerButton);
+        }
+
+        private void recreateRaiderButton() {
+            this.removeWidget(this.raiderButton);
+            int centerX = this.width / 2;
+            int buttonWidth = 200;
+            int buttonHeight = 20;
+            int startY = 50;
+            int spacing = 30;
+            
+            this.raiderButton = new Button(
+                centerX - buttonWidth / 2, startY + spacing, buttonWidth, buttonHeight,
+                getColorText("Raider Color", raiderColorPreview),
+                button -> openColorWheel(
+                    "Raider Color",
+                    raiderColorPreview,
+                    this::updateRaiderColor,
+                    color -> {
+                        raiderColorPreview = color;
+                        this.recreateRaiderButton();
+                        ModConfig.RAIDER_COLOR.set(color);
+                    }
+                )
+            );
+            this.addRenderableWidget(this.raiderButton);
+        }
+
+        private void recreateSpellcasterButton() {
+            this.removeWidget(this.spellcasterButton);
+            int centerX = this.width / 2;
+            int buttonWidth = 200;
+            int buttonHeight = 20;
+            int startY = 50;
+            int spacing = 30;
+            
+            this.spellcasterButton = new Button(
+                centerX - buttonWidth / 2, startY + spacing * 2, buttonWidth, buttonHeight,
+                getColorText("Spellcaster Color", spellcasterColorPreview),
+                button -> openColorWheel(
+                    "Spellcaster Color",
+                    spellcasterColorPreview,
+                    this::updateSpellcasterColor,
+                    color -> {
+                        spellcasterColorPreview = color;
+                        this.recreateSpellcasterButton();
+                        ModConfig.SPELLCASTER_COLOR.set(color);
+                    }
+                )
+            );
+            this.addRenderableWidget(this.spellcasterButton);
         }
 
         private Component getColorText(String title, int color) {
@@ -329,9 +423,9 @@ public class ConfigScreen extends Screen {
         }
 
         @Override
-        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-            renderBackground(guiGraphics);
-            guiGraphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFF);
+        public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+            renderBackground(poseStack);
+            drawCenteredString(poseStack, font, title, width / 2, 20, 0xFFFFFF);
 
             // Show color previews
             int previewSize = 20;
@@ -341,26 +435,26 @@ public class ConfigScreen extends Screen {
 
             // Illager color preview
             int illagerX = width / 4;
-            guiGraphics.fill(illagerX - previewSize/2, previewY - previewSize/2, 
+            fill(poseStack, illagerX - previewSize/2, previewY - previewSize/2, 
                            illagerX + previewSize/2, previewY + previewSize/2, 
                            illagerColorPreview);
-            guiGraphics.drawString(font, "Illager", illagerX - 20, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
+            drawString(poseStack, font, "Illager", illagerX - 20, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
 
             // Raider color preview
             int raiderX = width / 2;
-            guiGraphics.fill(raiderX - previewSize/2, previewY - previewSize/2, 
+            fill(poseStack, raiderX - previewSize/2, previewY - previewSize/2, 
                            raiderX + previewSize/2, previewY + previewSize/2, 
                            raiderColorPreview);
-            guiGraphics.drawString(font, "Raider", raiderX - 20, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
+            drawString(poseStack, font, "Raider", raiderX - 20, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
 
             // Spellcaster color preview
             int spellcasterX = 3 * width / 4;
-            guiGraphics.fill(spellcasterX - previewSize/2, previewY - previewSize/2, 
+            fill(poseStack, spellcasterX - previewSize/2, previewY - previewSize/2, 
                            spellcasterX + previewSize/2, previewY + previewSize/2, 
                            spellcasterColorPreview);
-            guiGraphics.drawString(font, "Spellcaster", spellcasterX - 30, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
+            drawString(poseStack, font, "Spellcaster", spellcasterX - 30, previewY + previewSize/2 + labelOffset, 0xFFFFFF);
             
-            super.render(guiGraphics, mouseX, mouseY, partialTick);
+            super.render(poseStack, mouseX, mouseY, partialTick);
         }
 
         @Override
@@ -451,21 +545,23 @@ public class ConfigScreen extends Screen {
             );
             this.addRenderableWidget(this.alphaSlider);
 
-            this.addRenderableWidget(Button.builder(
+            this.addRenderableWidget(new Button(
+                    this.width / 2 - 100, this.height - 50, 90, 20,
                     Component.literal("Apply"),
                     button -> {
                         this.saveHandler.accept(this.currentColor);
                         this.onClose();
                     }
-            ).bounds(this.width / 2 - 100, this.height - 50, 90, 20).build());
+            ));
 
-            this.addRenderableWidget(Button.builder(
+            this.addRenderableWidget(new Button(
+                this.width / 2 + 10, this.height - 50, 90, 20,
                 Component.literal("Cancel"),
                 button -> {
                     this.previewHandler.accept(this.initialColorValue); // Revert preview
                     this.onClose();
                 }
-            ).bounds(this.width / 2 + 10, this.height - 50, 90, 20).build());
+            ));
         }
 
         @Override
@@ -502,11 +598,11 @@ public class ConfigScreen extends Screen {
         }
 
         @Override
-        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-            renderBackground(guiGraphics);
+        public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+            renderBackground(poseStack);
 
             // Draw title
-            guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
+            drawCenteredString(poseStack, this.font, this.title, this.width / 2, 20, 0xFFFFFF);
 
             // Draw current color preview
             int previewX = 10;
@@ -514,12 +610,12 @@ public class ConfigScreen extends Screen {
             int previewSize = 60;
 
             // Color swatch with border
-            guiGraphics.fill(
+            fill(poseStack,
                     previewX - 2, previewY - 2,
                     previewX + previewSize + 2, previewY + previewSize + 2,
                     0xFFFFFFFF  // White border
             );
-            guiGraphics.fill(
+            fill(poseStack,
                     previewX, previewY,
                     previewX + previewSize, previewY + previewSize,
                     this.currentColor
@@ -527,8 +623,8 @@ public class ConfigScreen extends Screen {
 
             // Draw color info
             String hexString = String.format("#%08X", this.currentColor);
-            guiGraphics.drawString(this.font, "Current Color:", previewX, previewY + previewSize + 10, 0xFFFFFF);
-            guiGraphics.drawString(this.font, hexString, previewX, previewY + previewSize + 22, 0xFFFFFF);
+            drawString(poseStack, this.font, "Current Color:", previewX, previewY + previewSize + 10, 0xFFFFFF);
+            drawString(poseStack, this.font, hexString, previewX, previewY + previewSize + 22, 0xFFFFFF);
 
             // Draw color wheel visual (circle with gradient)
             int wheelX = this.width / 2 + 90;
@@ -551,7 +647,7 @@ public class ConfigScreen extends Screen {
                         // Convert HSV to RGB
                         int color = hsvToRgb(h, s, 1.0f);
 
-                        guiGraphics.fill(
+                        fill(poseStack,
                                 wheelX + x, wheelY + y,
                                 wheelX + x + 1, wheelY + y + 1,
                                 0xFF000000 | color
@@ -560,7 +656,7 @@ public class ConfigScreen extends Screen {
                 }
             }
 
-            super.render(guiGraphics, mouseX, mouseY, partialTick);
+            super.render(poseStack, mouseX, mouseY, partialTick);
         }
 
         @Override

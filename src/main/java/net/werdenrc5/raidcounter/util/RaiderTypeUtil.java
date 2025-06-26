@@ -9,10 +9,12 @@ import net.minecraft.world.entity.monster.SpellcasterIllager;
 import net.minecraft.world.entity.raid.Raider;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.werdenrc5.raidcounter.config.ModConfig;
-
-import static com.mojang.text2speech.Narrator.LOGGER;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class RaiderTypeUtil {
+    private static final Logger LOGGER = LogManager.getLogger();
+    
     // Constants for raider types
     public static final int TYPE_ILLAGER = 0;       // Abstract Illager class
     public static final int TYPE_RAIDER = 1;        // Raider class (not an Illager)
@@ -24,40 +26,39 @@ public class RaiderTypeUtil {
      * @return One of the TYPE_* constants
      */
     public static int getRaiderType(String entityId) {
-    ResourceLocation res = ResourceLocation.tryParse(entityId);
-    if (res == null) return TYPE_ILLAGER;
-    
-    EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(res);
-    if (entityType == null) return TYPE_ILLAGER;
+        ResourceLocation res = ResourceLocation.tryParse(entityId);
+        if (res == null) return TYPE_ILLAGER;
+        
+        EntityType<?> entityType = ForgeRegistries.ENTITY_TYPES.getValue(res);
+        if (entityType == null) return TYPE_ILLAGER;
 
-    try {
-
-        // Check for entity instance
-        Entity entity = entityType.create(Minecraft.getInstance().level);
-        if (entity != null) {
-            if (entity instanceof SpellcasterIllager) {
-                return TYPE_SPELLCASTER;
-            } else if (entity instanceof Raider && !(entity instanceof AbstractIllager)) {
-                return TYPE_RAIDER;
-            } else if (entity instanceof AbstractIllager) {
-                return TYPE_ILLAGER;
+        try {
+            // Check for entity instance
+            Entity entity = entityType.create(Minecraft.getInstance().level);
+            if (entity != null) {
+                if (entity instanceof SpellcasterIllager) {
+                    return TYPE_SPELLCASTER;
+                } else if (entity instanceof Raider && !(entity instanceof AbstractIllager)) {
+                    return TYPE_RAIDER;
+                } else if (entity instanceof AbstractIllager) {
+                    return TYPE_ILLAGER;
+                }
             }
+        } catch (Exception e) {
+            LOGGER.debug("Error during class-based raider detection, falling back to string-based detection: {}", e.getMessage());
         }
-    } catch (Exception e) {
-        LOGGER.debug("Error during class-based raider detection, falling back to string-based detection: {}", e.getMessage());
+        
+        // If all else fails, try string-based detection
+        String path = res.getPath().toLowerCase();
+        if (path.contains("evoker") || path.contains("illusioner")) {
+            return TYPE_SPELLCASTER;
+        } else if (path.contains("ravager") || path.contains("witch")) {
+            return TYPE_RAIDER;
+        }
+        
+        // Default to regular illager
+        return TYPE_ILLAGER;
     }
-    
-    // If all else fails, try string-based detection
-    String path = res.getPath().toLowerCase();
-    if (path.contains("evoker") || path.contains("illusioner")) {
-        return TYPE_SPELLCASTER;
-    } else if (path.contains("ravager") || path.contains("witch")) {
-        return TYPE_RAIDER;
-    }
-    
-    // Default to regular illager
-    return TYPE_ILLAGER;
-}
     
     /**
      * Gets the appropriate color for a raider type
@@ -66,24 +67,27 @@ public class RaiderTypeUtil {
      * @return The color as an integer
      */
     public static int getRaiderColor(String entityId, boolean useColorCoding) {
-    if (!useColorCoding) return ModConfig.ILLAGER_COLOR.get();
-    
-    int type = getRaiderType(entityId);
-    
-    //debug logging
-    LOGGER.debug("Entity {} has type {} which maps to color {}", 
-        entityId, type, getColorForType(type));
-    
-    return getColorForType(type);
-}
+        if (!useColorCoding) return ModConfig.ILLAGER_COLOR.get();
+        
+        int type = getRaiderType(entityId);
+        
+        //debug logging
+        LOGGER.debug("Entity {} has type {} which maps to color {}", 
+            entityId, type, getColorForType(type));
+        
+        return getColorForType(type);
+    }
 
-private static int getColorForType(int type) {
-    return switch (type) {
-        case TYPE_RAIDER -> ModConfig.RAIDER_COLOR.get();
-        case TYPE_SPELLCASTER -> ModConfig.SPELLCASTER_COLOR.get();
-        default -> ModConfig.ILLAGER_COLOR.get();
-    };
-}
+    private static int getColorForType(int type) {
+        switch (type) {
+            case TYPE_RAIDER:
+                return ModConfig.RAIDER_COLOR.get();
+            case TYPE_SPELLCASTER:
+                return ModConfig.SPELLCASTER_COLOR.get();
+            default:
+                return ModConfig.ILLAGER_COLOR.get();
+        }
+    }
     
     /**
      * Determines if an entity is a SpellcasterIllager based on class hierarchy

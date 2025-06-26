@@ -2,34 +2,32 @@ package net.werdenrc5.raidcounter;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.monster.AbstractIllager;
-import net.minecraft.world.entity.monster.SpellcasterIllager;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.EntityJoinLevelEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.raid.Raid;
 import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.Difficulty;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent.Phase;
-import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.event.TickEvent.PlayerTickEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig.Type;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.network.simple.SimpleChannel;
 import net.werdenrc5.raidcounter.client.ConfigScreen;
 import net.werdenrc5.raidcounter.client.HudOverlay;
 import net.werdenrc5.raidcounter.config.ModConfig;
@@ -86,7 +84,7 @@ public class RaidCounterMod {
 
         ServerPlayer player = (ServerPlayer) event.player;
         if (player.tickCount % 20 == 0) { // Update every second
-            ServerLevel level = (ServerLevel) player.level();
+            ServerLevel level = (ServerLevel) player.level;
             BlockPos pos = player.blockPosition();
             
             // Check if there's an active raid
@@ -132,10 +130,6 @@ public class RaidCounterMod {
         if (vanillaRaid != null && vanillaRaid.isActive()) {
             vanillaRaid.getAllRaiders().forEach(raider -> {
                 String id = EntityType.getKey(raider.getType()).toString();
-                
-                // Log raider type and class information for debugging
-                logRaiderInfo(raider, id);
-                
                 map.put(id, map.getOrDefault(id, 0) + 1);
             });
         }
@@ -147,36 +141,10 @@ public class RaidCounterMod {
                  (vanillaRaid == null || !vanillaRaid.getAllRaiders().contains(e))
         ).forEach(entity -> {
             String id = EntityType.getKey(entity.getType()).toString();
-            
-            // Log raider type for entities found in the area
-            if (entity instanceof Raider) {
-                logRaiderInfo((Raider)entity, id);
-            }
-            
             map.put(id, map.getOrDefault(id, 0) + 1);
         });
     }
     
-    /**
-     * Logs detailed information about a raider entity for debugging purposes
-     */
-    private void logRaiderInfo(Raider raider, String id) {
-        String raiderType = "Unknown";
-        
-        if (raider instanceof SpellcasterIllager) {
-            raiderType = "SpellcasterIllager";
-        } else if (raider instanceof AbstractIllager) {
-            raiderType = "AbstractIllager";
-        } else if (raider instanceof Raider) {
-            raiderType = "Raider (non-Illager)";
-        }
-        
-        LOGGER.debug("Found raider: {} ({}), Class type: {}", 
-            id, 
-            raider.getName().getString(),
-            raiderType);
-    }
-
     private boolean isPartOfAnyRaid(Entity entity) {
         return entity instanceof Raider raider && raider.getCurrentRaid() != null;
     }
@@ -192,20 +160,7 @@ public class RaidCounterMod {
             && event.getEntity() instanceof Raider raider) {
             Raid raid = serverLevel.getRaidAt(raider.blockPosition());
             if (raid != null && raid.isActive()) {
-                Difficulty difficulty = serverLevel.getDifficulty();
-                int numGroups = raid.getNumGroups(difficulty);
-                if (numGroups <= 0) {
-                    int badOmenLevel = raid.getBadOmenLevel();
-                    numGroups = Math.max(1, Math.min(6, badOmenLevel + 1));
-                }
-                
-                String id = EntityType.getKey(raider.getType()).toString();
-                logRaiderInfo(raider, id);
-                
-                LOGGER.debug("Detected raider joining an active raid: {}, wave {}/{}",
-                    id,
-                    raid.getGroupsSpawned(),
-                    numGroups);
+                LOGGER.debug("Raider joined active raid: {}", EntityType.getKey(raider.getType()));
             }
         }
     }

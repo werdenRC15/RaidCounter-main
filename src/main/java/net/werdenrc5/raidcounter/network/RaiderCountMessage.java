@@ -4,6 +4,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import net.werdenrc5.raidcounter.client.ClientRaiderCountData;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
@@ -21,20 +22,24 @@ public class RaiderCountMessage {
     }
 
     public RaiderCountMessage(FriendlyByteBuf buf) {
-        this.raiderMap = buf.readMap(
-            FriendlyByteBuf::readUtf,
-            FriendlyByteBuf::readInt
-        );
+        int mapSize = buf.readInt();
+        this.raiderMap = new HashMap<>();
+        for (int i = 0; i < mapSize; i++) {
+            String key = buf.readUtf();
+            Integer value = buf.readInt();
+            this.raiderMap.put(key, value);
+        }
         this.raidActive = buf.readBoolean();
         this.waveNumber = buf.readInt();
         this.totalWaves = buf.readInt();
     }
 
     public void encode(FriendlyByteBuf buf) {
-        buf.writeMap(raiderMap, 
-            FriendlyByteBuf::writeUtf,
-            FriendlyByteBuf::writeInt
-        );
+        buf.writeInt(raiderMap.size());
+        for (Map.Entry<String, Integer> entry : raiderMap.entrySet()) {
+            buf.writeUtf(entry.getKey());
+            buf.writeInt(entry.getValue());
+        }
         buf.writeBoolean(raidActive);
         buf.writeInt(waveNumber);
         buf.writeInt(totalWaves);

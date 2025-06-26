@@ -104,11 +104,15 @@ public class ModConfig {
     }
 
     public static ForgeConfigSpec.ConfigValue<Integer> getByTitle(String title) {
-    switch (title) {
-        case "Illager Color": return ILLAGER_COLOR;
-        case "Raider Color": return RAIDER_COLOR;
-        case "Spellcaster Color": return SPELLCASTER_COLOR;
-        default: throw new IllegalArgumentException("Unknown color title: " + title);
+        switch (title) {
+            case "Illager Color": 
+                return ILLAGER_COLOR;
+            case "Raider Color": 
+                return RAIDER_COLOR;
+            case "Spellcaster Color": 
+                return SPELLCASTER_COLOR;
+            default: 
+                throw new IllegalArgumentException("Unknown color title: " + title);
+        }
     }
-}
 }
